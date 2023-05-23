@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>육면체 2D 전개</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://threejs.org/build/three.js"></script>
+    <script>
+      const canvas = document.createElement("canvas");
+      document.body.appendChild(canvas);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ canvas });
+
+      // Group to hold the faces of the cube
+      const unfoldedCube = new THREE.Group();
+
+      const size = 1;
+      const materials = [
+        new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
+        new THREE.MeshBasicMaterial({ color: 0x0000ff }),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 }),
+        new THREE.MeshBasicMaterial({ color: 0xff00ff }),
+        new THREE.MeshBasicMaterial({ color: 0x00ffff }),
+      ];
+
+      // Positions of the faces in 2D space
+      const positions = [
+        new THREE.Vector3(-size, size, 0),
+        new THREE.Vector3(-size, -size, 0),
+        new THREE.Vector3(size, -size, 0),
+        new THREE.Vector3(0, size, 0),
+        new THREE.Vector3(0, -size, 0),
+        new THREE.Vector3(size, size, 0),
+      ];
+
+      // Create and position the faces
+      for (let i = 0; i < 6; i++) {
+        const geometry = new THREE.PlaneGeometry(size, size);
+        const mesh = new THREE.Mesh(geometry, materials[i]);
+        mesh.position.copy(positions[i]);
+        unfoldedCube.add(mesh);
+      }
+
+      // Add the group to the scene
+      scene.add(unfoldedCube);
+
+      camera.position.z = 3;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>

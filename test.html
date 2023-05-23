@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>육면체 2D 전개</title>
+    <style>
+      body {
+        margin: 0;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="https://threejs.org/build/three.js"></script>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+      // 캔버스 엘리먼트를 가져옵니다.
+      const canvas = document.getElementById("canvas");
+
+      // three.js의 Scene, Camera, Renderer를 생성합니다.
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ canvas });
+
+      // 육면체의 가로, 세로, 높이를 설정합니다.
+      const width = 100;
+      const height = 100;
+      const depth = 100;
+
+      // 육면체의 Geometry와 Material을 생성합니다.
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+
+      // 육면체 Mesh를 생성합니다.
+      const cube = new THREE.Mesh(geometry, material);
+
+      // 육면체를 Scene에 추가합니다.
+      scene.add(cube);
+
+      // 카메라 위치를 설정합니다.
+      camera.position.z = 500;
+
+      // 애니메이션 루프를 생성합니다.
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // 육면체를 회전시킵니다.
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+
+        // Scene을 렌더링합니다.
+        renderer.render(scene, camera);
+      }
+
+      // 애니메이션을 시작합니다.
+      animate();
+    </script>
+  </body>
+</html>
