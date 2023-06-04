@@ -8,8 +8,28 @@
         margin: 0;
       }
     </style>
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <script type="module" src="/main.js"></script>
+    <!-- <script type="module" src="/main.js"></script> -->
+
+    <script type="module" src="src/index.js"></script>
+
+    <div class="page">
+      <div class="container">
+        <canvas id="canvas"></canvas>
+        <div class="ui-controls">
+          <div>Scroll ⬇ To Animate</div>
+          <input
+            type="range"
+            id="slider"
+            min="0"
+            max="100"
+            value="0"
+            step="1"
+          />
+        </div>
+      </div>
+    </div>
   </body>
 </html>

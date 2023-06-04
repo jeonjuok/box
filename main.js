@@ -16,7 +16,7 @@ document.body.appendChild(renderer.domElement);
 const unfoldedCube = new THREE.Group();
 
 const size = 1;
-const thickness = 0.1; // thickness of each face
+const thickness = 0.01; // thickness of each face
 const speed = 0.01; // rotation speed
 const materials = [
   new THREE.MeshBasicMaterial({ color: 0xff0000 }),
