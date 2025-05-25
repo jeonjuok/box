@@ -1,368 +1,152 @@
 import * as THREE from "three";
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import GUI from 'dat.gui'; // Import dat.GUI
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeeeeee);
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(5, 10, 7.5);
+scene.add(directionalLight);
+
 const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
+camera.position.z = 5;
 
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Group to hold the faces of the cube
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
 const unfoldedCube = new THREE.Group();
-
 const size = 1;
-const thickness = 0.01; // thickness of each face
-const speed = 0.01; // rotation speed
-const materials = [
-  new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-  new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
-  new THREE.MeshBasicMaterial({ color: 0x0000ff }),
-  new THREE.MeshBasicMaterial({ color: 0xffff00 }),
-  new THREE.MeshBasicMaterial({ color: 0xff00ff }),
-  new THREE.MeshBasicMaterial({ color: 0x00ffff }),
+const thickness = 0.05;
+const speed = 0.01;
+
+let isPaused = false; // Animation state variable
+
+const faceConfigs = [
+  { id: 'face_0_base', color: 0x888888, initialPosition: new THREE.Vector3(0, 0, 0), pivotOffset: new THREE.Vector3(0, 0, 0), rotationAxis: 'x' },
+  { id: 'face_1_top', color: 0xff0000, initialPosition: new THREE.Vector3(0, size / 2, 0), pivotOffset: new THREE.Vector3(0, -size / 2, 0), rotationAxis: 'x' },
+  { id: 'face_2_right', color: 0x00ff00, initialPosition: new THREE.Vector3(size / 2, 0, 0), pivotOffset: new THREE.Vector3(-size / 2, 0, 0), rotationAxis: 'y' },
+  { id: 'face_3_left', color: 0x0000ff, initialPosition: new THREE.Vector3(-size / 2, 0, 0), pivotOffset: new THREE.Vector3(size / 2, 0, 0), rotationAxis: 'y' },
+  { id: 'face_4_bottom', color: 0xffff00, initialPosition: new THREE.Vector3(0, -size / 2, 0), pivotOffset: new THREE.Vector3(0, size / 2, 0), rotationAxis: 'x' },
+  { id: 'face_5_tail', color: 0xff00ff, initialPosition: new THREE.Vector3(0, -size - size / 2, 0), pivotOffset: new THREE.Vector3(0, size / 2, 0), rotationAxis: 'x' }
 ];
 
-// Positions and pivot points of the faces
-const positions = [
-  new THREE.Vector3(0, 0, 0), // 0
-  new THREE.Vector3(0, size / 2, 0), // 1
-  new THREE.Vector3(size / 2, 0, 0), // 2
-  new THREE.Vector3(-size / 2, 0, 0), // 3
-  new THREE.Vector3(0, -size / 2, 0), // 4
-  new THREE.Vector3(0, -size - size / 2, 0), // 5
-];
-const pivots = [
-  new THREE.Vector3(0, 0, 0), // 0
-  new THREE.Vector3(0, -size / 2, 0), // 1
-  new THREE.Vector3(-size / 2, 0, 0), // 2
-  new THREE.Vector3(size / 2, 0, 0), // 3
-  new THREE.Vector3(0, size / 2, 0), // 4
-  new THREE.Vector3(0, size / 2, 0), // 5
-];
-const rotationAxes = [
-  new THREE.Vector3(1, 0, 0), // 0
-  new THREE.Vector3(1, 0, 0), // 1
-  new THREE.Vector3(0, 1, 0), // 2
-  new THREE.Vector3(0, 1, 0), // 3
-  new THREE.Vector3(1, 0, 0), // 4
-  new THREE.Vector3(1, 0, 0), // 5
-];
-
-// Create and position the faces
-for (let i = 0; i < 6; i++) {
+faceConfigs.forEach(config => {
+  const material = new THREE.MeshStandardMaterial({ color: config.color, metalness: 0.2, roughness: 0.7, side: THREE.DoubleSide });
   const geometry = new THREE.BoxGeometry(size, size, thickness);
-  const mesh = new THREE.Mesh(geometry, materials[i]);
-
-  // Create a pivot object and add the mesh to it
+  const mesh = new THREE.Mesh(geometry, material);
   const pivot = new THREE.Object3D();
   pivot.add(mesh);
-
-  // Set the pivot point to the appropriate edge of the face
-  mesh.position.copy(pivots[i]);
-
-  // Set the position of the pivot object
-  pivot.position.copy(positions[i]);
-
-  // Add the pivot object to the group
+  mesh.position.copy(config.pivotOffset);
+  pivot.position.copy(config.initialPosition);
   unfoldedCube.add(pivot);
-}
-
-// Add the group to the scene
+});
 scene.add(unfoldedCube);
 
-camera.position.z = 3;
+let currentAnimatingChildIndex = 1;
+let currentRotationAmount = 0;
+let animationStage = 'primary_folding';
 
-let i = 1;
-let t = 0;
+// dat.GUI Setup
+const gui = new GUI();
+const animationControls = {
+    playPause: function() {
+        isPaused = !isPaused;
+    },
+    reset: function() {
+        animationStage = 'primary_folding';
+        currentAnimatingChildIndex = 1;
+        currentRotationAmount = 0;
+        isPaused = true; // Start paused on reset for manual play
+
+        if (unfoldedCube && unfoldedCube.children.length === faceConfigs.length) {
+            for (let i = 0; i < faceConfigs.length; i++) {
+                const pivot = unfoldedCube.children[i];
+                const config = faceConfigs[i];
+                // Reset individual face rotations
+                pivot.rotation.set(0,0,0); // Simpler to reset all axes
+            }
+        }
+        unfoldedCube.rotation.set(0, 0, 0);
+        // Explicitly call render to show the reset state immediately if paused
+        renderer.render(scene, camera); 
+    }
+};
+
+gui.add(animationControls, 'playPause').name('Play/Pause');
+gui.add(animationControls, 'reset').name('Reset Animation');
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
 function animate() {
   requestAnimationFrame(animate);
 
-  if (i < unfoldedCube.children.length) {
-    const pivot = unfoldedCube.children[i];
-    pivot.rotation[rotationAxes[i].x === 1 ? "x" : "y"] += speed;
-    t += speed;
-    if (t >= Math.PI / 2) {
-      t = 0;
-      i++;
+  if (isPaused) { // Check if animation is paused
+    renderer.render(scene, camera); // Still render the scene for orbit controls
+    return;
+  }
+
+  if (controls.enableDamping) {
+    controls.update();
+  }
+
+  if (animationStage === 'primary_folding') {
+    if (currentAnimatingChildIndex < unfoldedCube.children.length) {
+      const pivot = unfoldedCube.children[currentAnimatingChildIndex];
+      const config = faceConfigs[currentAnimatingChildIndex];
+      if (currentRotationAmount < Math.PI / 2) {
+        pivot.rotation[config.rotationAxis] += speed;
+        currentRotationAmount += speed;
+      } else {
+        pivot.rotation[config.rotationAxis] = Math.PI / 2;
+        currentRotationAmount = 0;
+        currentAnimatingChildIndex++;
+        if (currentAnimatingChildIndex === unfoldedCube.children.length) {
+          animationStage = 'last_face_second_fold';
+        }
+      }
     }
-  } else if (i === unfoldedCube.children.length) {
-    // for last face, fold one more time
-    const pivot = unfoldedCube.children[i - 1];
-    pivot.rotation[rotationAxes[i - 1].x === 1 ? "x" : "y"] += speed;
-    if (t >= Math.PI / 2) {
-      t = 0;
-      i++;
+  } else if (animationStage === 'last_face_second_fold') {
+    const lastChildIndex = unfoldedCube.children.length - 1;
+    const pivot = unfoldedCube.children[lastChildIndex];
+    const config = faceConfigs[lastChildIndex];
+    if (currentRotationAmount < Math.PI / 2) {
+      pivot.rotation[config.rotationAxis] += speed;
+      currentRotationAmount += speed;
+    } else {
+      pivot.rotation[config.rotationAxis] = Math.PI;
+      currentRotationAmount = 0;
+      animationStage = 'done';
     }
   }
 
-  unfoldedCube.rotation.x += 0.01;
-  unfoldedCube.rotation.y += 0.01;
-  unfoldedCube.rotation.z += 0.01;
+  if (animationStage !== 'done') {
+    unfoldedCube.rotation.x += 0.005;
+    unfoldedCube.rotation.y += 0.005;
+    unfoldedCube.rotation.z += 0.005;
+  }
 
   renderer.render(scene, camera);
 }
 
+// Initialize the cube to its reset state
+animationControls.reset(); 
+isPaused = true; // Ensure it starts paused as per reset logic
 animate();
-
-// import * as THREE from "three";
-
-// const scene = new THREE.Scene();
-// const camera = new THREE.PerspectiveCamera(
-//   75,
-//   window.innerWidth / window.innerHeight,
-//   0.1,
-//   1000
-// );
-
-// const renderer = new THREE.WebGLRenderer();
-// renderer.setSize(window.innerWidth, window.innerHeight);
-// document.body.appendChild(renderer.domElement);
-
-// // Group to hold the faces of the cube
-// const unfoldedCube = new THREE.Group();
-
-// const size = 1;
-// const thickness = 0.1; // thickness of each face
-// const speed = 0.01; // rotation speed
-// const materials = [
-//   new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0x0000ff }),
-//   new THREE.MeshBasicMaterial({ color: 0xffff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0xff00ff }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ffff }),
-// ];
-
-// // // Positions of the faces in cross shape
-// // const positions = [
-// //   new THREE.Vector3(0, 0, 0), // 0
-// //   new THREE.Vector3(0, size, 0), // 1
-// //   new THREE.Vector3(size, 0, 0), // 2
-// //   new THREE.Vector3(-size, 0, 0), // 3
-// //   new THREE.Vector3(0, -size, 0), // 4
-// //   new THREE.Vector3(0, -size * 2, 0), // 5
-// // ];
-
-// // Positions of the faces in cross shape
-// const positions = [
-//   new THREE.Vector3(0, 0, thickness / 2), // 0
-//   new THREE.Vector3(0, size, thickness / 2), // 1
-//   new THREE.Vector3(size, 0, thickness / 2), // 2
-//   new THREE.Vector3(-size, 0, thickness / 2), // 3
-//   new THREE.Vector3(0, -size, thickness / 2), // 4
-//   new THREE.Vector3(0, -size * 2, thickness / 2), // 5
-// ];
-
-// // Create and position the faces
-// for (let i = 0; i < 6; i++) {
-//   const geometry = new THREE.BoxGeometry(size, size, thickness);
-//   const mesh = new THREE.Mesh(geometry, materials[i]);
-//   mesh.position.copy(positions[i]);
-//   unfoldedCube.add(mesh);
-// }
-
-// // Add the group to the scene
-// scene.add(unfoldedCube);
-
-// camera.position.z = 5;
-
-// let i = 1;
-// let t = 0;
-
-// function animate() {
-//   requestAnimationFrame(animate);
-
-//   if (i < unfoldedCube.children.length) {
-//     const mesh = unfoldedCube.children[i];
-//     const prevMesh = unfoldedCube.children[i - 1];
-//     mesh.rotation.x += speed;
-
-//     // Move the pivot point to the edge of the previous face
-//     mesh.position.y =
-//       prevMesh.position.y + size / 2 - (size / 2) * Math.cos(mesh.rotation.x);
-//     mesh.position.z =
-//       prevMesh.position.z + (size / 2) * Math.sin(mesh.rotation.x);
-
-//     t += speed;
-//     if (t >= Math.PI / 2) {
-//       t = 0;
-//       i++;
-//     }
-//   } else if (i === unfoldedCube.children.length) {
-//     // for last face, fold one more time
-//     const mesh = unfoldedCube.children[i - 1];
-//     mesh.rotation.y += speed;
-//     if (t >= Math.PI / 2) {
-//       t = 0;
-//       i++;
-//     }
-//   }
-
-// //   unfoldedCube.rotation.x += 0.01;
-// //   unfoldedCube.rotation.y += 0.01;
-// //   unfoldedCube.rotation.z += 0.01;
-
-//   renderer.render(scene, camera);
-// }
-
-// animate();
-
-// import * as THREE from "three";
-
-// const scene = new THREE.Scene();
-// const camera = new THREE.PerspectiveCamera(
-//   75,
-//   window.innerWidth / window.innerHeight,
-//   0.1,
-//   1000
-// );
-
-// const renderer = new THREE.WebGLRenderer();
-// renderer.setSize(window.innerWidth, window.innerHeight);
-// document.body.appendChild(renderer.domElement);
-
-// // Group to hold the faces of the cube
-// const unfoldedCube = new THREE.Group();
-
-// const size = 1;
-// const thickness = 0.1; // thickness of each face
-// const speed = 0.01; // rotation speed
-// const materials = [
-//   new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0x0000ff }),
-//   new THREE.MeshBasicMaterial({ color: 0xffff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0xff00ff }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ffff }),
-// ];
-
-// // Positions of the faces in cross shape
-// const positions = [
-//   new THREE.Vector3(0, 0, thickness / 2), // 0
-//   new THREE.Vector3(0, size, thickness / 2), // 1
-//   new THREE.Vector3(size, 0, thickness / 2), // 2
-//   new THREE.Vector3(-size, 0, thickness / 2), // 3
-//   new THREE.Vector3(0, -size, thickness / 2), // 4
-//   new THREE.Vector3(0, -size * 2, thickness / 2), // 5
-// ];
-
-// // Create and position the faces
-// for (let i = 0; i < 6; i++) {
-//   const geometry = new THREE.BoxGeometry(size, size, thickness);
-//   const mesh = new THREE.Mesh(geometry, materials[i]);
-//   mesh.position.copy(positions[i]);
-//   unfoldedCube.add(mesh);
-// }
-
-// // Add the group to the scene
-// scene.add(unfoldedCube);
-
-// camera.position.z = 3;
-
-// let i = 0;
-// let t = 0;
-
-// function animate() {
-//   requestAnimationFrame(animate);
-
-//   if (i < unfoldedCube.children.length) {
-//     const mesh = unfoldedCube.children[i];
-//     mesh.rotation.x += speed;
-//     t += speed;
-//     if (t >= Math.PI / 2) {
-//       t = 0;
-//       i++;
-//     }
-//   } else if (i === unfoldedCube.children.length) {
-//     // for last face, fold one more time
-//     const mesh = unfoldedCube.children[i - 1];
-//     mesh.rotation.y += speed;
-//     if (t >= Math.PI / 2) {
-//       t = 0;
-//       i++;
-//     }
-//   }
-
-//   renderer.render(scene, camera);
-// }
-
-// animate();
-
-// import * as THREE from "three";
-
-// const scene = new THREE.Scene();
-// const camera = new THREE.PerspectiveCamera(
-//   75,
-//   window.innerWidth / window.innerHeight,
-//   0.1,
-//   1000
-// );
-
-// //const canvas = document.createElement("canvas");
-// //document.body.appendChild(canvas);
-// //const renderer = new THREE.WebGLRenderer({ canvas });
-
-// //랜더 설정
-// const renderer = new THREE.WebGLRenderer();
-// renderer.setSize(window.innerWidth, window.innerHeight);
-// document.body.appendChild(renderer.domElement);
-
-// // Group to hold the faces of the cube
-// const unfoldedCube = new THREE.Group();
-
-// const size = 1.2;
-// const thickness = 0.1; // thickness of each face
-// const materials = [
-//   new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0x0000ff }),
-//   new THREE.MeshBasicMaterial({ color: 0xffff00 }),
-//   new THREE.MeshBasicMaterial({ color: 0xff00ff }),
-//   new THREE.MeshBasicMaterial({ color: 0x00ffff }),
-// ];
-
-// // Positions of the faces in cross shape
-// //  1
-// //3 0 2
-// //  4
-// //  5
-
-// const positions = [
-//   new THREE.Vector3(0, 0, 0), // 0
-//   new THREE.Vector3(0, size, 0), // 1
-//   new THREE.Vector3(size, 0, 0), // 2
-//   new THREE.Vector3(-size, 0, 0), // 3
-//   new THREE.Vector3(0, -size, 0), // 4
-//   new THREE.Vector3(0, -size * 2, 0), // 5
-// ];
-
-// // Create and position the faces
-// for (let i = 0; i < 6; i++) {
-//   const geometry = new THREE.BoxGeometry(size, size, thickness); //
-//   const mesh = new THREE.Mesh(geometry, materials[i]);
-//   mesh.position.copy(positions[i]);
-//   unfoldedCube.add(mesh);
-// }
-
-// // Add the group to the scene
-// scene.add(unfoldedCube);
-
-// camera.position.z = 5;
-
-// function animate() {
-//   requestAnimationFrame(animate);
-
-//   unfoldedCube.rotation.x += 0.01;
-//   unfoldedCube.rotation.y += 0.01;
-//   unfoldedCube.rotation.z += 0.01;
-
-//   renderer.render(scene, camera);
-// }
-
-// animate();

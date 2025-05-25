@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+import GUI from 'dat.gui';
 
 const container = document.querySelector(".container");
 const canvasEl = document.querySelector("#canvas");
@@ -10,13 +11,16 @@ let renderer,
   scene,
   camera,
   orbit,
-  boxes = [];
+  boxes = [],
+  boxMaterial; // Declare boxMaterial globally
+
+// GUI
+const gui = new GUI();
 
 // 슬라이더 엘리먼트를 가져옵니다.
 const slider = document.getElementById("slider");
+const rotationValueDisplay = document.getElementById('rotationValue'); // Get reference to the new span
 slider.addEventListener("input", handleSliderChange);
-
-console.log(slider);
 
 initScene();
 window.addEventListener("resize", updateSceneSize);
@@ -39,6 +43,16 @@ function initScene() {
   camera.position.set(0.6, 0.2, 1.3).multiplyScalar(70);
   updateSceneSize();
 
+  // Initialize boxMaterial before createBoxes
+  boxMaterial = new THREE.MeshBasicMaterial({
+    color: 0x3c9aa0,
+    wireframe: true,
+  });
+
+  // Add GUI control for wireframe
+  gui.add(boxMaterial, 'wireframe').name('Wireframe').onChange(render);
+
+
   addAxesAndOrbitControls();
 
   createBoxes();
@@ -48,10 +62,7 @@ function initScene() {
 
 function createBoxes() {
   const boxSize = [15, 10, 1];
-  const boxMaterial = new THREE.MeshBasicMaterial({
-    color: 0x3c9aa0,
-    wireframe: true,
-  });
+  // boxMaterial is now global
   const boxGeometry = new THREE.BoxGeometry(boxSize[0], boxSize[1], boxSize[2]);
   const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
 
@@ -61,8 +72,11 @@ function createBoxes() {
     boxes[i].position.x = (i - 0.5 * numberOfBoxes) * (boxSize[0] + 2);
     scene.add(boxes[i]);
   }
+  // Adjust position of the second box upwards
   boxes[1].position.y = 0.5 * boxSize[1];
+  // Rotate the third box on its Y-axis
   boxes[2].rotation.y = 0.5 * Math.PI;
+  // Adjust position of the fourth box downwards
   boxes[3].position.y = -boxSize[1];
 }
 
@@ -70,7 +84,7 @@ function addAxesAndOrbitControls() {
   const loader = new FontLoader();
   const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
   loader.load(
-    "https://unpkg.com/three@0.138.0/examples/fonts/helvetiker_regular.typeface.json",
+    "/fonts/helvetiker_regular.typeface.json",
     (font) => {
       const textParams = {
         font: font,
@@ -86,6 +100,10 @@ function addAxesAndOrbitControls() {
         scene.add(axisTitle);
       }
       render();
+    },
+    undefined, // onProgress callback
+    (error) => {
+      console.error('An error occurred loading the font:', error);
     }
   );
 
@@ -119,10 +137,17 @@ function updateSceneSize() {
 function handleSliderChange() {
   const value = parseFloat(slider.value) / 100;
 
-  const targetRotation = value * 0.5 * Math.PI;
+  const targetRotation = value * 0.5 * Math.PI; // This is in radians
   boxes.forEach((box) => {
     box.rotation.x = targetRotation;
   });
+
+  // Convert radians to degrees for display
+  const degrees = THREE.MathUtils.radToDeg(targetRotation);
+  // Update the text content of the span
+  if (rotationValueDisplay) { // Ensure the element exists
+    rotationValueDisplay.textContent = degrees.toFixed(1);
+  }
 
   renderer.render(scene, camera);
 }

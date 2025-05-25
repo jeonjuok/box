@@ -19,7 +19,8 @@
       <div class="container">
         <canvas id="canvas"></canvas>
         <div class="ui-controls">
-          <div>Scroll ⬇ To Animate</div>
+          <div>Controls:</div>
+          <label for="slider">Rotate Boxes (X-Axis):</label>
           <input
             type="range"
             id="slider"
@@ -28,6 +29,7 @@
             value="0"
             step="1"
           />
+          <p>Current Rotation: <span id="rotationValue">0</span> degrees</p>
         </div>
       </div>
     </div>

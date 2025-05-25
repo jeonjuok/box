@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>육면체 2D 전개</title>
+    <title>Spinning Cube Test</title>
     <style>
       body {
         margin: 0;
@@ -13,11 +13,11 @@
     </style>
   </head>
   <body>
-    <script src="https://threejs.org/build/three.js"></script>
-
     <canvas id="canvas"></canvas>
 
-    <script>
+    <script type="module">
+      import * as THREE from 'three';
+
       // 캔버스 엘리먼트를 가져옵니다.
       const canvas = document.getElementById("canvas");
 
