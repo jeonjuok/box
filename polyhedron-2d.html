@@ -23,7 +23,7 @@
       
       // Camera Setup
       const aspect = window.innerWidth / window.innerHeight;
-      const frustumSize = 6; // Adjust as needed to fit the net
+      const frustumSize = 6; // Chosen to comfortably fit the cross-shaped net (approx 3 units high, 2 units wide, plus padding)
       const camera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, 0.1, 1000);
       camera.position.z = 5; // Adjusted for better view with Orthographic
       camera.lookAt(scene.position); // Ensure camera looks at the origin

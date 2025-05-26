@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Box Editor</title>
+    <style>
+        body { margin: 0; overflow: hidden; } /* overflow: hidden to prevent scrollbars */
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module" src="/src/box_editor.js"></script>
+    <div style="padding: 10px; text-align: center;">
+        <label for="loadStateFile">Load State (JSON):</label>
+        <input type="file" id="loadStateFile" accept=".json">
+    </div>
+</body>
+</html>
